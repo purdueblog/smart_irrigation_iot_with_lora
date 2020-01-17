@@ -1,17 +1,20 @@
 //We modified example code
- 
+// base
 #include <SPI.h>
 #include <RH_RF95.h>
 #include <Console.h>
+
+// for saving data
 #include <Process.h>
 
 // for REST API 
+#include <Thread.h>
 #include <Bridge.h>
 #include <BridgeServer.h>
 #include <BridgeClient.h>
 
 RH_RF95 rf95;
- 
+
 //If you use Dragino IoT Mesh Firmware, uncomment below lines.
 //For product: LG01. 
  
@@ -33,6 +36,8 @@ String dataString = "";
 void uploadData(); // Upload Data to ThingSpeak.
 
 BridgeServer server;
+
+Thread controlThread = Thread();
 
 void setup()
 {
@@ -62,6 +67,8 @@ void setup()
     server.listenOnLocalhost();
     server.begin();
 
+    controlThread.onRun(recvRestPacket);
+    controlThread.setInterval(1000);
 }
  
 //calculate byte. DO NOT CHANGE!
@@ -107,7 +114,8 @@ uint16_t recdata(unsigned char* recbuf, int Length)
  
 void loop()
 {   
-
+    if(controlThread.shouldRun())
+        controlThread.run();
     if (rf95.waitAvailableTimeout(2000))// Listen Data from LoRa Node
     {
         uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];//receive data buffer
@@ -192,19 +200,7 @@ void loop()
             //Console.println("recv failed");
         }
     }
-    // Get clients coming from server
-    BridgeClient client = server.accept();
 
-    // There is a new client?
-    if (client) {
-      // Process request
-      process(client);
-
-      // Close connection and free resources.
-      client.stop();
-    }
-
-  delay(50); // Poll every 50ms
 }
  
 void uploadData() {//Upload Data to ThingSpeak
@@ -239,51 +235,7 @@ void uploadData() {//Upload Data to ThingSpeak
     Console.println("");
 }
 
-void process(BridgeClient client) {
-    String command = client.readStringUntil('/');
-    Console.println(command);
-    if (command == "irrigation") {
-        irrigationCommand(client);
-    }
-}
-
-void irrigationCommand(BridgeClient client) {
-    String command, copy_str, control, value;
-    int index;
-  
-    command = client.readString();
-    Console.println(command);
-    index= command.indexOf("/");
-    if(index != -1){
-        control = command.substring(0, index);
-        value = command.substring(index+1, command.length());
-    }
-  
-    Console.println(command);
-    irrigationContorl(control, value);
-}
-
-void irrigationContorl(String control, String value){
-    char data[50];
-    data[0] = 'c';
-    data[1] = '1';
-  
-    if(control == "control" || control == "Control"){
-        if(value == "on" || value == "On" || value == "ON"){
-            data[2] = 0x00;
-        } else if (value == "off" || value == "Off" || value == "OFF") {
-            data[2] = 0x01;
-        } else {
-            data[3] = 0x02;
-        } 
-    }
-    rf95.send(data, sizeof(data));
-    if (rf95.waitAvailableTimeout(3000)){}
-
-     
-}
-
-void getRestAPIForIrriagtion() {
+void recvRestPacket() {
   // Get clients coming from server
   BridgeClient client = server.accept();
 
@@ -297,4 +249,57 @@ void getRestAPIForIrriagtion() {
   }
 
   delay(50); // Poll every 50ms
+}
+
+void process(BridgeClient client) {
+    int command = client.parseInt();
+
+    Console.print("command : ");
+    Console.println(command);
+
+    irrigationContorl(command);
+}
+
+void irrigationContorl(int value){
+    uint8_t data[50];
+    int index=0;
+    
+    Console.println("ready");
+    Console.println(value);
+    data[0] = 'c';
+    data[1] = 1;
+    if(value == 1){
+        data[2] = 0;
+    } else if (value == 0) {
+        data[2] = 1;
+    } else {
+        data[2] = 2;
+    } 
+    Console.print("send packet to end node : ");
+
+    for (; index < 3; index++){
+        Console.print(data[index], HEX);
+        Console.print(" "); 
+    }
+    Console.println();
+    
+    rf95.send(data, sizeof(data));
+    if (rf95.waitAvailableTimeout(2000)){
+        uint8_t ack[RH_RF95_MAX_MESSAGE_LEN];//receive data buffer
+        uint8_t ack_len = sizeof(ack);//data buffer length
+
+        if (rf95.recv(ack, &ack_len))//Check if there is incoming data
+        {
+            recdata( ack, ack_len);
+            Console.print("Get LoRa Packet: ");
+            for (int i = 0; i < ack_len; i++)
+            {
+                Console.print(ack[i],HEX);
+                Console.print(" ");
+            }
+            Console.println();
+        }
+    }
+
+     
 }

@@ -57,7 +57,7 @@ void irrigationCommand(BridgeClient client) {
   String command, copy_str, control, value;
   int index;
   
-  command = client.readString();
+  command = client.parseInt();
     Console.println(command);
   index= command.indexOf("/");
   if(index != -1){
