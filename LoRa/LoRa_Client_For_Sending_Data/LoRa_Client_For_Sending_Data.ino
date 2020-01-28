@@ -1,5 +1,3 @@
-
-
 /*
   Require Library: 
   https://github.com/dragino/RadioHead
@@ -15,10 +13,11 @@
   by Edwin Chen <support@dragino.com>
   Dragino Technology Co., Limited
 */
+
 #include <DHT.h>
 #include <SPI.h>
 #include <RH_RF95.h>
- 
+
 #define dht_tnh A0 // Use A0 pin as Data pin for DHT11. 
 #define dht_sm A1 // 
 
@@ -31,7 +30,7 @@ char node_id[3] = {1,1,1}; //LoRa End Node ID
  
 float frequency = 868.0;
 unsigned int count = 1;
- 
+
 void setup()
 {
     InitDHT();
@@ -57,6 +56,7 @@ void setup()
         Serial.print(node_id[i],HEX);
     }
     Serial.println();
+    
 }
  
 void InitDHT()
@@ -70,68 +70,18 @@ void InitDHT()
 //Get Sensor Data
 void ReadDHT()
 {
-  
     bGlobalErr=0;
-//    byte dht_in;
-//    byte i;
-//        
-//    //pinMode(dht_tnh,OUTPUT);
-//    digitalWrite(dht_tnh,LOW);//Pull Low A0 and send signal
-//    delay(30);//Delay > 18ms so DHT11 can get the start signal
-//        
-//    digitalWrite(dht_tnh,HIGH);
-//    delayMicroseconds(40);//Check the high level time to see if the data is 0 or 1
-//    pinMode(dht_tnh,INPUT);
-//    // delayMicroseconds(40);
-//    
-//    dht_in=digitalRead(dht_tnh);//Get A0 Status
-//    //   Serial.println(dht_in,DEC);
-//    if(dht_in){
-//        bGlobalErr=1;
-//        return;
-//    }
-//    //DHT11 send response, pull low A0 80us
-//    delayMicroseconds(80);
-//    dht_in=digitalRead(dht_tnh);
-//    
-//    if(!dht_in){
-//        bGlobalErr=2;
-//        return;
-//    }
-//    //DHT11 send response, pull low A0 80us
-//    delayMicroseconds(80);
-//    
-//    for (i=0; i<5; i++)//Get sensor data
-//    dht_dat[i] = read_dht_dat();
-// 
-//    //Read soil humidity data 
-//    dht_dat[5]= digitalRead(A1); 
-//    
-//    pinMode(dht_tnh,OUTPUT);
-//    digitalWrite(dht_tnh,HIGH);//release signal and wait for next signal
-//    pinMode(A1,OUTPUT);
-//    digitalWrite(A1,HIGH);
 
     float temperature = dht.readTemperature();
     float humidity = dht.readHumidity();
     int soil_moisture = analogRead(dht_sm);
-
+    soil_moisture = map(soil_moisture,600,0,10000,0); 
     dht_dat[0] = (int)(humidity); // humidity
     dht_dat[1] = (unsigned int)(humidity*100) % 100;
     dht_dat[2] = (int)(temperature); // temperature
     dht_dat[3] = (unsigned int)(temperature * 100) % 100;
     dht_dat[5] = (int) soil_moisture / 100; // soil moisture
     dht_dat[6] = (int) soil_moisture % 100;
-    
-    //For DHT11.
-//    byte dht_check_sum = dht_dat[0]+dht_dat[1]+dht_dat[2]+dht_dat[3];//calculate check sum
-//    Serial.print("dht_dat[4], dht_check_sum : ");
-//    Serial.print(dht_dat[4]);
-//    Serial.print(", ");
-//    Serial.println(dht_check_sum);
-//    if(dht_dat[4]!= dht_check_sum)//check sum mismatch
-//        {bGlobalErr=3;}
- 
 };
  
  
@@ -191,7 +141,7 @@ void loop()
     count++;
 
     //Get sensor data
-    ReadDHT();
+    ReadDHT();  
  
     //Make array for send data.
     char data[50] = {0} ;
@@ -224,17 +174,11 @@ void loop()
           Serial.print(data[6], DEC);//Show temperature
           Serial.print("C  ");
           Serial.print("soil moisture = ");
-          Serial.println(((int)data[7]*100 + (int)data[8]), DEC);//Show soil moisture
+          Serial.print((int)data[7], DEC);//Show soil moisture
+          Serial.print(".");
+          Serial.print((int)data[8], DEC);
+          Serial.println("%");  
           break;
-//       case 1:
-//          Serial.println("Error 1: DHT start condition 1 not met.");
-//          break;
-//       case 2:
-//          Serial.println("Error 2: DHT start condition 2 not met.");
-//          break;
-//       case 3:
-//          Serial.println("Error 3: DHT checksum error.");
-//          break;
        default:
           Serial.println("Error: Unrecognized code encountered.");
           break;
@@ -282,19 +226,19 @@ void loop()
     {
         // Should be a reply message for us now   
         if (rf95.recv(buf, &len))//check if reply message is correct
-       {
+        {
             if(buf[0] == node_id[0] && buf[1] == node_id[2] && buf[2] == node_id[2] ) // Check if reply message has the our node ID
-           {
-               pinMode(4, OUTPUT);
-               digitalWrite(4, HIGH);
-               Serial.print("Got Reply from Gateway: ");//print reply
-               Serial.println((char*)buf);
+            {
+                pinMode(4, OUTPUT);
+                digitalWrite(4, HIGH);
+                Serial.print("Got Reply from Gateway: ");//print reply
+                Serial.println((char*)buf);
               
-               delay(400);
-               digitalWrite(4, LOW); 
-               Serial.print("RSSI: ");  // print RSSI
-               Serial.println(rf95.lastRssi(), DEC);        
-           }
+                delay(400);
+                digitalWrite(4, LOW); 
+                Serial.print("RSSI: ");  // print RSSI
+                Serial.println(rf95.lastRssi(), DEC);        
+            }
         }
         else
         { //When receive is failed. (From gateway | server)

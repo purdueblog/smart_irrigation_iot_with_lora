@@ -23,7 +23,7 @@ RH_RF95 rf95;
 #define BAUDRATE 115200
  
 //Thingspeak write api (User's)
-String myWriteAPIString = "GB1XNLZ0QMQC1BYC";
+String myWriteAPIString = "50XSNMNLNY0FHE3D";
  
 //need crcdata's explanation
 uint16_t crcdata = 0;
@@ -38,7 +38,7 @@ void uploadData(); // Upload Data to ThingSpeak.
 BridgeServer server;
 
 Thread controlThread = Thread();
-
+void uploadData();
 void setup()
 {
   //Arduino Yun device have to use Bridge. Yun device and computer are on same network.
@@ -70,7 +70,7 @@ void setup()
     controlThread.onRun(recvRestPacket);
     controlThread.setInterval(1000);
 }
- 
+  
 //calculate byte. DO NOT CHANGE!
 uint16_t calcByte(uint16_t crc, uint8_t b)
 {
@@ -163,18 +163,21 @@ void loop()
                     int th = newData[2];
                     unsigned int tl = newData[3];
                     //Soil humidity
-                    int sh = newData[4] * 100 + newData[5];
+                    int sh = newData[4];
+                    unsigned int s1 = newData[5];
                     
-                    Console.print("Get Temperature:");
-                    Console.print(th);
-                    Console.print(".");
-                    Console.println(tl);
-                    Console.print("Get Humidity:");
-                    Console.print(hh);
-                    Console.print(".");
-                    Console.println(hl);
-                    Console.print("Get Soil Moisture:");
-                    Console.print(sh);
+//                    Console.print("Get Temperature:");
+//                    Console.print(th);
+//                    Console.print(".");
+//                    Console.println(tl);
+//                    Console.print("Get Humidity:");
+//                    Console.print(hh);
+//                    Console.print(".");
+//                    Console.println(hl);
+//                    Console.print("Get Soil Moisture:");
+//                    Console.print(sh);
+//                    Console.print(".");
+//                    Console.println(s1);
  
                     //for Thingspeak 
                     dataString ="field1=";
@@ -187,6 +190,8 @@ void loop()
                     dataString += hl;
                     dataString +="&field3=";
                     dataString += sh;
+                    dataString += ".";
+                    dataString += s1;
                                        
                     uploadData(); 
                     dataString="";
@@ -232,6 +237,8 @@ void uploadData() {//Upload Data to ThingSpeak
     Console.println("");
     Console.println("Call Finished");
     Console.println("####################################");
+    Console.print("url : ");
+    Console.println(upload_url);
     Console.println("");
 }
 
@@ -268,9 +275,9 @@ void irrigationContorl(int value){
     Console.println(value);
     data[0] = 'c';
     data[1] = 1;
-    if(value == 1){
+    if(value == 1){ //   draginoip/arduino/1  on the water
         data[2] = 0;
-    } else if (value == 0) {
+    } else if (value == 0) {  //   draginoip/arduino/0  off the water
         data[2] = 1;
     } else {
         data[2] = 2;
@@ -284,6 +291,7 @@ void irrigationContorl(int value){
     Console.println();
     
     rf95.send(data, sizeof(data));
+    rf95.waitPacketSent();
     if (rf95.waitAvailableTimeout(2000)){
         uint8_t ack[RH_RF95_MAX_MESSAGE_LEN];//receive data buffer
         uint8_t ack_len = sizeof(ack);//data buffer length
