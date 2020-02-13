@@ -174,10 +174,10 @@ void loop()
 //                    Console.print(hh);
 //                    Console.print(".");
 //                    Console.println(hl);
-//                    Console.print("Get Soil Moisture:");
-//                    Console.print(sh);
-//                    Console.print(".");
-//                    Console.println(s1);
+                    Console.print("Get Soil Moisture:");
+                    Console.print(sh);
+                    Console.print(".");
+                    Console.println(s1);
  
                     //for Thingspeak 
                     dataString ="field1=";
@@ -259,22 +259,28 @@ void recvRestPacket() {
 }
 
 void process(BridgeClient client) {
-    int command = client.parseInt();
+//    int command = client.parseInt();
+    String command = client.readStringUntil('/');
+    int value;
 
     Console.print("command : ");
     Console.println(command);
 
-    irrigationContorl(command);
+    if(command == "irrigation"){
+        value = client.parseInt();
+        Console.print("value : ");
+        Console.println(value);
+        irrigationContorl(value);      
+    }
 }
 
 void irrigationContorl(int value){
     uint8_t data[50];
     int index=0;
     
-    Console.println("ready");
-    Console.println(value);
     data[0] = 'c';
     data[1] = 1;
+//    data[2] = value;
     if(value == 1){ //   draginoip/arduino/1  on the water
         data[2] = 0;
     } else if (value == 0) {  //   draginoip/arduino/0  off the water
@@ -286,7 +292,7 @@ void irrigationContorl(int value){
 
     for (; index < 3; index++){
         Console.print(data[index], HEX);
-        Console.print(" "); 
+        Console.print(" ");   
     }
     Console.println();
     
@@ -308,6 +314,4 @@ void irrigationContorl(int value){
             Console.println();
         }
     }
-
-     
 }

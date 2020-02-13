@@ -19,7 +19,7 @@
 #include <RH_RF95.h>
 
 #define dht_tnh A0 // Use A0 pin as Data pin for DHT11. 
-#define dht_sm A1 // 
+#define dht_sm A2 //\
 
 RH_RF95 rf95;
 DHT dht (dht_tnh, DHT22);
@@ -33,8 +33,8 @@ unsigned int count = 1;
 
 void setup()
 {
-    InitDHT();
     dht.begin();
+
     Serial.begin(9600);
     if (!rf95.init())
         Serial.println("init failed");
@@ -59,14 +59,6 @@ void setup()
     
 }
  
-void InitDHT()
-{   //Arduino pin (DHT is A0, Soil sensor is A1. It can be changed for user's decide.)
-    pinMode(dht_tnh,OUTPUT);//Set A0 to output
-    digitalWrite(dht_tnh,HIGH);//Pull high A0
-//    pinMode(A1,OUTPUT);//Set A1 to output
-//    digitalWrite(A1,HIGH);//Pull high A1
-}
- 
 //Get Sensor Data
 void ReadDHT()
 {
@@ -74,32 +66,17 @@ void ReadDHT()
 
     float temperature = dht.readTemperature();
     float humidity = dht.readHumidity();
-    int soil_moisture = analogRead(dht_sm);
-    soil_moisture = map(soil_moisture,600,0,10000,0); 
+    float soil_moisture = readVH400(dht_sm);
+    Serial.print("soil_moisture");
+    Serial.println(soil_moisture);
+
     dht_dat[0] = (int)(humidity); // humidity
     dht_dat[1] = (unsigned int)(humidity*100) % 100;
     dht_dat[2] = (int)(temperature); // temperature
     dht_dat[3] = (unsigned int)(temperature * 100) % 100;
-    dht_dat[5] = (int) soil_moisture / 100; // soil moisture
-    dht_dat[6] = (int) soil_moisture % 100;
+    dht_dat[5] = (int)(soil_moisture);  // soil moisture
+    dht_dat[6] = (unsigned int)(soil_moisture*100) % 100;
 };
- 
- 
- 
- 
-byte read_dht_dat(){
-    byte i = 0;
-    byte result=0;
-    for(i=0; i< 8; i++)
-    {
-        while(digitalRead(dht_tnh)==LOW);//wait 50us
-        delayMicroseconds(30);//Check the high level time to see if the data is 0 or 1
-        if (digitalRead(dht_tnh)==HIGH)
-        result |=(1<<(7-i));//
-        while (digitalRead(dht_tnh)==HIGH);//Get High, Wait for next data sampleing. 
-    }
-    return result;
-}
  
 //Do not change
 uint16_t calcByte(uint16_t crc, uint8_t b)
@@ -216,41 +193,73 @@ void loop()
     }
     Serial.println();
     
-    //Send LoRa Data
-    rf95.send(sendBuf, dataLength+2);
-     
-    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];//Reply data array
-    uint8_t len = sizeof(buf);//reply data length
- 
-    if (rf95.waitAvailableTimeout(3000))// Check If there is reply in 3 seconds.
-    {
-        // Should be a reply message for us now   
-        if (rf95.recv(buf, &len))//check if reply message is correct
-        {
-            if(buf[0] == node_id[0] && buf[1] == node_id[2] && buf[2] == node_id[2] ) // Check if reply message has the our node ID
-            {
-                pinMode(4, OUTPUT);
-                digitalWrite(4, HIGH);
-                Serial.print("Got Reply from Gateway: ");//print reply
-                Serial.println((char*)buf);
-              
-                delay(400);
-                digitalWrite(4, LOW); 
-                Serial.print("RSSI: ");  // print RSSI
-                Serial.println(rf95.lastRssi(), DEC);        
-            }
-        }
-        else
-        { //When receive is failed. (From gateway | server)
-           Serial.println("recv failed");//
-           rf95.send(sendBuf, strlen((char*)sendBuf));//resend if no reply
-        }
-    }
-    else
-    {
-        Serial.println("No reply, is LoRa gateway running?");//No signal reply
-        rf95.send(sendBuf, strlen((char*)sendBuf));//resend data
-    }
-    delay(10000); // Send sensor data every 30 seconds
+//   //Send LoRa Data
+//    rf95.send(sendBuf, dataLength+2);
+//     
+//    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];//Reply data array
+//    uint8_t len = sizeof(buf);//reply data length
+// 
+//    if (rf95.waitAvailableTimeout(3000))// Check If there is reply in 3 seconds.
+//    {
+//        // Should be a reply message for us now   
+//        if (rf95.recv(buf, &len))//check if reply message is correct
+//        {
+//            if(buf[0] == node_id[0] && buf[1] == node_id[2] && buf[2] == node_id[2] ) // Check if reply message has the our node ID
+//            {
+//                pinMode(4, OUTPUT);
+//                digitalWrite(4, HIGH);
+//                Serial.print("Got Reply from Gateway: ");//print reply
+//                Serial.println((char*)buf);
+//              
+//                delay(400);
+//                digitalWrite(4, LOW); 
+//                Serial.print("RSSI: ");  // print RSSI
+//                Serial.println(rf95.lastRssi(), DEC);        
+//            }
+//        }
+//        else
+//        { //When receive is failed. (From gateway | server)
+//           Serial.println("recv failed");//
+//           rf95.send(sendBuf, strlen((char*)sendBuf));//resend if no reply
+//        }
+//    }
+//    else
+//    {
+//        Serial.println("No reply, is LoRa gateway running?");//No signal reply
+//        rf95.send(sendBuf, strlen((char*)sendBuf));//resend data
+//    }
+    delay(1000); // Send sensor data every 30 seconds
     Serial.println("");
+}
+
+
+float readVH400(int analogPin) {
+  // This function returns Volumetric Water Content by converting the analogPin value to voltage
+  // and then converting voltage to VWC using the piecewise regressions provided by the manufacturer
+  // at http://www.vegetronix.com/Products/VH400/VH400-Piecewise-Curve.phtml
+  
+  // NOTE: You need to set analogPin to input in your setup block
+  //   ex. pinMode(<analogPin>, INPUT);
+  //   replace <analogPin> with the number of the pin you're going to read from.
+  
+  // Read value and convert to voltage  
+//  int sensor1DN = analogRead(analogPin);
+  int sensor1DN = analogRead(dht_sm);
+  Serial.println(sensor1DN);
+  float sensorVoltage = sensor1DN * (3.0 / 600.0);
+  float VWC;
+//  Serial.println(sensorVoltage);
+  // Calculate VWC
+  if(sensorVoltage <= 1.1) {
+    VWC = 10*sensorVoltage-1;
+  } else if(sensorVoltage > 1.1 && sensorVoltage <= 1.3) {
+    VWC = 25*sensorVoltage-17.5;
+  } else if(sensorVoltage > 1.3 && sensorVoltage <= 1.82) {
+    VWC = 48.08*sensorVoltage-47.5;
+  } else if(sensorVoltage > 1.82 && sensorVoltage <= 2.2) {
+    VWC = 26.32*sensorVoltage-7.89;
+  } else if(sensorVoltage > 2.2 ){
+    VWC = 62.5*sensorVoltage-87.5;
+  }
+  return(VWC+1);
 }

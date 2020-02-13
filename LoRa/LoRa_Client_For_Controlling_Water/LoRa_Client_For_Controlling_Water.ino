@@ -1,17 +1,8 @@
 /*
-  Require Library: 
-  https://github.com/dragino/RadioHead
-  
-  Upload Data to IoT Server ThingSpeak (https://thingspeak.com/):
-  Support Devices: LoRa Shield + Arduino 
-  
-  Example sketch showing how to read Temperature and Humidity from DHT11 sensor,  
-  Then send the value to LoRa Gateway, the LoRa Gateway will send the value to the 
-  IoT server
-  It is designed to work with the other sketch dht11_server. 
-  modified 24 11 2016
-  by Edwin Chen <support@dragino.com>
-  Dragino Technology Co., Limited
+   controll irrigation to use REST API
+   http://LoRa gateway LG01-p ip/arduino/irrigation/(seconds time)
+   for example)
+   http://192.168.2.241/arduino/irrigation/1 (open water 1 seconds)
 */
 
 #include <SPI.h>
@@ -24,29 +15,25 @@
 RH_RF95 rf95;
  
 float frequency = 868.0;
+unsigned long currentTime, setTime, startTime, endTime = 0;
+bool controll;
 
 void setup()
 {
     Serial.begin(9600);
     if (!rf95.init())
         Serial.println("init failed");
-//        
-//    // Setup ISM frequency
+
+    // Setup ISM frequency
     rf95.setFrequency(frequency);
-//    
-//    // Setup Power,dBm
+
+    // Setup Power,dBm
     rf95.setTxPower(17);
-//    
-//    //rf95.setSyncWord(0x34); Not using
-//    
+    
+    //rf95.setSyncWord(0x34); Not using
+    
     Serial.println("LoRa End Node Example --"); 
     Serial.println("    Water Irrigation\n");
-
-//    for(int i = 0;i < 3; i++)
-//    {
-//        Serial.print(node_id[i],HEX);
-//    }
-//    Serial.println();
     
     pinMode(motorPin, OUTPUT);
 }
@@ -69,16 +56,35 @@ void loop()
                 }
                 Serial.println();
                 if(buf[2] == 0){
-                    digitalWrite(motorPin, HIGH);
-                    Serial.println("On2");
-                    delay(1000);
+                  controll = false;
                 }
-                else if(buf[2] == 1){
-                    Serial.println("Off");
-                    water_off;
-                    delay(1000);
+                else{
+                  controll = true;
+                  water_on;
+                  setTime = buf[2];
+                  startTime = setTime*1000;
+                  endTime = millis();
                 }
+                Serial.print("setTime : ");
+                Serial.println(startTime);
+                
             }
         }
     }
+    
+    Serial.print("CurrentTime");
+    currentTime = millis() - endTime;
+    Serial.println(currentTime);
+    if(currentTime > startTime){
+      Serial.println("stop water");
+      setTime = -2;
+      controll = false;
+    }
+    
+    if(!controll){
+      water_off;
+      Serial.println("off");
+      currentTime = 0;
+    }
+    currentTime += 2;
 }
